@@ -19,7 +19,7 @@ clear % clear workspace
 % You need to change the base path to folder in which data, code, and output 
 % folder are stored.
 %-------------------------------------------------------------------------
-BasePath = 'C:\Users\leabe\OneDrive\Dokumente\Studium\Master\WS23\Macro with Data\Final_Project\Best-Hozova';
+BasePath = '\Users\karolina\Macro with Data\Final_Project\Best-Hozova';
 
 
 % Specify paths for code, data, and output
