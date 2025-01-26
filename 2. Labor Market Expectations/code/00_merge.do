@@ -16,7 +16,7 @@
 * SET PATH 
 * You need to change the base path to folder in which data, code, and output folder are stored.
 *==============================================================================*
-global BasePath "C:\Users\leabe\OneDrive\Dokumente\Studium\Master\WS23\Macro with Data\Final_Project\Best-Hozova" 
+global BasePath "\Users\karolina\Macro with Data\Final_Project\Best-Hozova" 
 
 
 *==============================================================================*
