@@ -1,1 +1,9 @@
-
+Download **"data_merged.csv"** here: https://drive.google.com/file/d/1j1xzCY7Dbp-WoRaGLZ58Z-DyTCnFKR1I/view?usp=sharing
+Download **"complete.dta"** here: https://drive.google.com/file/d/1b73gNdKTE3Lk-OeNsKf3rX9mV0r4-6AH/view?usp=sharing
+Download **"FRBNY-SCE-Public-Microdata-Complete-13-16.xlsx" here: https://docs.google.com/spreadsheets/d/1FSPcbzNssIi1LkPj83FOrASpvgF2wCHU/edit?usp=sharing&ouid=103890221046144911886&rtpof=true&sd=true
+Download **"FRBNY-SCE-Public-Microdata-Complete-17-19.xlsx"** here: https://docs.google.com/spreadsheets/d/182JcVGxhmpz5tP4t0A876IX8aFhF93KC/edit?usp=sharing&ouid=103890221046144911886&rtpof=true&sd=true
+Download **"frbny-sce-public-microdata-latest.xlsx" here: https://docs.google.com/spreadsheets/d/1DK4sniicDqcw7S926CUTDvfQUfrcIGTk/edit?usp=sharing&ouid=103890221046144911886&rtpof=true&sd=true
+Download **"sce-labor-microdata-public.xlsx"** here: https://docs.google.com/spreadsheets/d/1GJO_ZuoSQVloa-IuKsp5NgRxiCzQ8GkQ/edit?usp=sharing&ouid=103890221046144911886&rtpof=true&sd=true
+Download **"part_1.dta"** here: https://drive.google.com/file/d/1uaKrZtOxYBQaHhJ_rEuMmd2rBNLpmnAJ/view?usp=sharing
+Download **"part_2.dta"** here: https://drive.google.com/file/d/12k9TzZGVo347hQxpf96hnkJC45pMkvNj/view?usp=sharing
+Download **"part_3.dta"** here: https://drive.google.com/file/d/1Plv-cPj2dYh4wra6qLIWlqgzq6bUCQ0L/view?usp=sharing
