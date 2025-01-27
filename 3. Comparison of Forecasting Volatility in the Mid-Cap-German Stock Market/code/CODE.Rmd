@@ -25,6 +25,7 @@ library('tseries')   #Time Series Analysis and Computational Finance
 library('forecast') #Forecasting Functions for Time Series and Linear Models 
 library('repr') #Serializable Representations 
 
+X_MDAXI <- read_csv("^MDAXI.csv")
 MDAXI <- as.xts(X_MDAXI)
 MDAXI <- na.omit(MDAXI)
 chartSeries(MDAXI)
