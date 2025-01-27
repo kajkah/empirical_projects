@@ -1,0 +1,486 @@
+---
+title: "APPLIED ECOX"
+output: html_document
+---
+```{r}
+library(tseries)
+library(forecast)
+library(repr)
+library(rugarch) # package for GARCH modelling
+library(moments) # package for kurtosis estimation
+library(aTSA) # package for ARCH-LM test, it also contains different version of adf.test
+
+options(repr.plot.width=8, repr.plot.height=5) # set the plotting parameters
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(quantmod)
+library(xts)
+library(PerformanceAnalytics)
+library(rugarch)
+library('tseries')   #Time Series Analysis and Computational Finance 
+library('forecast') #Forecasting Functions for Time Series and Linear Models 
+library('repr') #Serializable Representations 
+
+MDAXI <- as.xts(X_MDAXI)
+MDAXI <- na.omit(MDAXI)
+chartSeries(MDAXI)
+
+```
+```{r}
+plot(MDAXI)
+```
+
+```{r}
+#STATIONARITY
+MDAXI <- as.xts(X_MDAXI)
+MDAXI <- na.omit(MDAXI)
+```
+
+
+```{r}
+par(mfrow = c(1,2))
+acf(MDAXI, main = "ACF")
+pacf(MDAXI, main = "PACF")
+```
+```{r}
+tseries::adf.test(MDAXI)
+```
+
+```{r}
+log_ret <- diff(log(MDAXI))
+log_ret = na.omit(log_ret)
+
+chartSeries(log_ret)
+```
+```{r}
+plot(log_ret)
+```
+
+```{r}
+tseries::adf.test(log_ret)
+```
+```{r}
+par(mfrow = c(1,2))
+acf(log_ret, main = "ACF")
+pacf(log_ret, main = "PACF")
+```
+According to the output we see pattern for MA(1) process since autocorrelation drops towards 0 for second lag and higher while partial correlation shows only a slow decay. Let=s try to also use selection procedure based on AIC and BIC:
+```{r}
+# choose the best model based on the AIC or BIC
+(fit_auto1 <- auto.arima(log_ret, ic = c("bic"), stationary = TRUE))
+(fit_auto2 <- auto.arima(log_ret, ic = c("aic"), stationary = TRUE))
+```
+```{r}
+# plot the dependence structure left in the residuals
+resid <- fit_auto1$residuals # save the residuals
+
+par(mfrow = c(1,2))
+Acf(resid, main = "ACF")
+Pacf(resid, main = "PACF")
+```
+```{r}
+# use the Ljung-Box test to verify if the ACF at first 20 lags is jointly equal to zero
+# parameter 'fitdf' to specify the number of degrees of freedom to be subtracted if x is a series of residuals (p+q+constant)
+Box.test(fit_auto2$residuals,  lag = 20, type = c("Ljung-Box"), fitdf = length(fit_auto2$coef))
+```
+
+
+```{r}
+# we can employ function 'checkresiduals' in order to run diagnostic for the residuals
+checkresiduals(fit_auto2)
+```
+Looks like there is nothing left regarding the linear dependency in the residuals. They should be thus Gaussian white noise. Let's check the Gaussianity assumption. Let's look at the distribution of standardized residuals defined as and compare them with the standard normal distribution.
+```{r}
+resid_norm <- resid/sqrt(fit_auto2$sigma2)
+
+par(mfrow = c(1,2))
+hist(resid_norm, prob = TRUE, breaks = 100, xlab = "Normalized residuals", main="Histogram")
+curve(dnorm(x, mean = 0, sd = 1), col="blue", lwd = 1, add = TRUE)
+qqnorm(resid_norm)
+qqline(resid_norm)
+```
+
+
+```{r}
+# Let's compute the Jarque-Bera test for the normality of the residuals
+jarque.bera.test(resid)
+kurtosis(resid)
+skewness(resid)
+```
+Test rejects the hypothesis that the residuals are normal - based on the estimated values of kurtosis and skuewness of the residuals. The rejection is mainly driven by the high kurtosis of the data - fat tails. There is relatively high chance of extreme events - important feature for risk management, portfolio selection etc.
+```{r}
+resid_squared<-resid^2
+plot(resid_squared, ylab="Squared Residuals")
+```
+```{r}
+par(mfrow=c(1,2))
+Acf(resid_squared, lag.max = 12, main="ACF")
+Pacf(resid_squared, lag.max = 12, main="PACF")
+```
+Dependence in the squared residuals suggests that there is some serial structure in the second moment of the series - which was also suggested by the volatility clusters observed in the plot. Solution: employ volatility models (GARCH type of models, etc.) to properly model the associated risk.
+How to test whether there is some dependence in squared residuals?
+Ljung-Box test on squared residuals:
+```{r}
+options(repr.plot.width=10, repr.plot.height=7)
+# portmanteau-Q test (similar to Ljung-Box test) and ARCH-LM test:
+(fit_manual <- arima(log_ret, order = c(0, 0, 1)))
+arch.test(fit_manual)
+```
+We can see that the p-values of ARCH-LM test strongly reject the null hypothesis that there is no heteroskedasticity in the residuals. Let's perform the Ljung-Box test on squared residuals as well to confirm the result.
+```{r}
+Box.test(resid^2,  lag = 8, type = c("Ljung-Box"))
+```
+We can see that the ARCH effect is indeed present. So, in order to model it, we employ GARCH models to capture the time-varying nature of the volatility of the residuals. The general specifiaction of GARCH(p,q) iswhere the residual from the ARMA model is defined as
+𝑒𝑡=𝜎𝑡𝜖𝑡
+where  𝜖𝑡  is iid standard normal random variable and  𝜎𝑡  is the time-varying volatility of the residual.
+So, let's estimate simple ARMA(0,1)-GARCH(1,1) model on the log returns and print the estimation results.
+```{r}
+hist(residuals(fit_1n, standardize = TRUE),freq=FALSE, nclass=40, xlab="Standardized Residuals of ARMA(0,1)-GARCH(1,1)")
+curve(dnorm(x, mean=0, sd=1), 
+      col="darkgreen", lwd=2, add=TRUE, yaxt="n")
+```
+
+```{r}
+# specify the model that we want to estimate:
+# we can estimate the ARMA-GARCH model jointly using rugarch package
+model_specification_1n <- ugarchspec(mean.model = list(armaOrder = c(0, 1)), 
+                     variance.model = list(garchOrder = c(1, 1)),
+                     distribution.model = "norm")
+
+# fit the model
+(fit_1n <- ugarchfit(spec = model_specification_1n, data = log_ret))
+
+fit_1n
+
+# in the results, robust standard errors are obtained using quasi-mle instead of MLE. These errors are more robust against violations of the distributional assumption
+
+# alpha+beta<1 is the stability condition - stationary unconditional variance, if alpha1>1 the shock would have destabilizing effect causing the variance -> inf.
+```
+```{r}
+model_specification_1s <- ugarchspec(mean.model = list(armaOrder = c(0, 1)), 
+                     variance.model = list(garchOrder = c(1, 1)),
+                     distribution.model = "std")
+
+# fit the model
+(fit_1s <- ugarchfit(spec = model_specification_1s, data = log_ret))
+
+fit_1s
+```
+```{r}
+model_specification_1g <- ugarchspec(mean.model = list(armaOrder = c(0, 1)), 
+                     variance.model = list(garchOrder = c(1, 1)),
+                     distribution.model = "ged")
+
+# fit the model
+(fit_1g <- ugarchfit(spec = model_specification_1g, data = log_ret))
+
+fit_1g
+```
+
+```{r}
+# you can specify some special GARCH models using ugarchspec function
+model_specification_2n <- ugarchspec(mean.model = list(armaOrder = c(0, 1), include.mean = FALSE), 
+                     variance.model = list(model = "eGARCH", garchOrder = c(1, 1)),
+                     distribution.model = "norm") # 'norm' normal distribution, 'std' student-t distribution
+# estimate the model
+fit_2n <- ugarchfit(spec = model_specification_2n, data = log_ret)
+
+# Explore the results
+#coef(fit) # estimated parameters
+fit_2n
+
+
+```
+
+```{r}
+# you can specify some special GARCH models using ugarchspec function
+model_specification_2s <- ugarchspec(mean.model = list(armaOrder = c(0, 1), include.mean = FALSE), 
+                     variance.model = list(model = "eGARCH", garchOrder = c(1, 1)),
+                     distribution.model = "std") # 'norm' normal distribution, 'std' student-t distribution
+# estimate the model
+fit_2s <- ugarchfit(spec = model_specification_2s, data = log_ret)
+
+# Explore the results
+#coef(fit) # estimated parameters
+fit_2s
+
+```
+```{r}
+hist(residuals(fit_2s, standardize = TRUE),freq=FALSE, nclass=40, xlab="Standardized Residuals of ARMA(0,1)-GARCH(1,1)")
+curve(dnorm(x, mean=0, sd=1), 
+      col="darkgreen", lwd=2, add=TRUE, yaxt="n")
+```
+
+```{r}
+hist(residuals(fit_2n, standardize = TRUE),freq=FALSE, nclass=40, xlab="Standardized Residuals of ARMA(0,1)-GARCH(1,1)")
+curve(dnorm(x, mean=0, sd=1), 
+      col="darkgreen", lwd=2, add=TRUE, yaxt="n")
+```
+
+```{r}
+# you can specify some special GARCH models using ugarchspec function
+model_specification_2g <- ugarchspec(mean.model = list(armaOrder = c(0, 1), include.mean = FALSE), 
+                     variance.model = list(model = "eGARCH", garchOrder = c(1, 1)),
+                     distribution.model = "ged") # 'norm' normal distribution, 'std' student-t distribution
+# estimate the model
+fit_2g  <- ugarchfit(spec = model_specification_2g, data = log_ret)
+
+# Explore the results
+#coef(fit) # estimated parameters
+fit_2g 
+```
+
+
+```{r}
+# you can specify some special GARCH models using ugarchspec function
+model_specification_3n <- ugarchspec(mean.model = list(armaOrder = c(0, 1), include.mean = FALSE), 
+                     variance.model = list(model = "gjrGARCH", garchOrder = c(1, 1)),
+                     distribution.model = "norm") # 'norm' normal distribution, 'std' student-t distribution
+# estimate the model
+fit_3n <- ugarchfit(spec = model_specification_3n, data = log_ret)
+
+# Explore the results
+#coef(fit) # estimated parameters
+fit_3n
+
+
+```
+
+
+```{r}
+# you can specify some special GARCH models using ugarchspec function
+model_specification_3s <- ugarchspec(mean.model = list(armaOrder = c(0, 1), include.mean = FALSE), 
+                     variance.model = list(model = "gjrGARCH", garchOrder = c(1, 1)),
+                     distribution.model = "std") # 'norm' normal distribution, 'std' student-t distribution
+# estimate the model
+fit_3s <- ugarchfit(spec = model_specification_3s, data = log_ret)
+
+# Explore the results
+#coef(fit) # estimated parameters
+fit_3s
+
+
+```
+
+```{r}
+# you can specify some special GARCH models using ugarchspec function
+model_specification_3g <- ugarchspec(mean.model = list(armaOrder = c(0, 1), include.mean = FALSE), 
+                     variance.model = list(model = "gjrGARCH", garchOrder = c(1, 1)),
+                     distribution.model = "ged") # 'norm' normal distribution, 'std' student-t distribution
+# estimate the model
+fit_3g <- ugarchfit(spec = model_specification_3g, data = log_ret)
+
+# Explore the results
+#coef(fit) # estimated parameters
+fit_3g
+
+
+```
+
+Now, we can plot the estimated volatility 
+```{r}
+resid = as.numeric(residuals(fit_auto2, standardize = FALSE)) # getting residuals from the mean equation
+
+options(repr.plot.width=10, repr.plot.height=4)
+plot(abs(resid),type="l",col="black", ylab="Absolute residuals", xlab="Time") # absolute value of residuals from arma model
+lines(array(sigma(fit_2s)),col="yellow") # estimated volatility, estimated sigma
+```
+
+```{r}
+options(repr.plot.width=10, repr.plot.height=3)
+# now we can check the standardized residuals from the model (residuals multiplied by sqrt(h_t)^-1) - scaling based on estimated volatility
+# check ACF and PACF of the squared residuls: (are there remaining Garch effects?)
+res <- residuals(fit3, standardize = TRUE)
+sqr_res <- residuals(fit3, standardize = TRUE)^2
+
+par(mfrow = c(1,2))
+Acf(res, lag.max = 20, main="ACF standardized residuals")
+Pacf(res, lag.max = 20, main="PACF standardized residuals")
+
+par(mfrow = c(1,2))
+Acf(sqr_res, lag.max = 20, main="ACF squared standardized residuals")
+Pacf(sqr_res, lag.max = 20, main="PACF squared standardized residuals")
+
+# this can be checked more formally using i.e. Ljung-Box test (see output of garch estimation)
+```
+
+```{r}
+# check visually normality of the residuals
+hist(residuals(fit3, standardize = TRUE),freq=FALSE, nclass=40)
+curve(dnorm(x, mean=0, sd=1), 
+      col="darkgreen", lwd=2, add=TRUE, yaxt="n")
+# this can also be checked more formally (i.e. Jarque-Bera test)
+```
+Although, there are still some heavy tails present, the distribution is much more closer to the normal distribution than in the case of unconditional volatility! And this was achieved by the simple GARCH(1,1) model.
+
+```{r}
+#h0=normality of the data
+# normality of residuals is still rejected, but the standardized residuals follow normal distribution more closely now.
+jarque.bera.test(residuals(fit3, standardize = TRUE))
+```
+
+
+
+# Plot estimated variances
+plot(variances, type = "l", col = c("red", "blue", "green"),
+     main = "Estimated Variances for GARCH Models",
+     xlab = "Date", ylab = "Variance")
+legend("topright", legend = c("sGARCH-normal", "sGARCH-t", "eGARCH-t"), 
+       col = c("red", "blue", "green"), lty = 1)
+``
+```{r}
+colnames(log_ret) <- c('Returns')
+colnames(X_MDAXI) <- c('Prices')
+data <- merge.xts(X_MDAXI, log_ret)
+
+```
+
+```{r}
+as.numeric(log_ret)[1]
+```
+
+```{r}
+for (i in 2:nrow(data)){ # starting in day 2, 
+  # since in day 1 is not possible; simple: the difference
+  data[i, "vola"] <- as.numeric(log_ret)[i] - as.numeric(log_ret)[i-1]
+}
+```
+
+```{r}
+data$vola_sq <- NA 
+for (i in 2:nrow(data)){ # starting in day 2, 
+  # since in day 1 is not possible; simple: the difference
+  data[i, "vola_sq"] <- data[i, "vola"]^2
+}
+```
+
+```{r}
+length(data$vola)
+```
+```{r}
+sigma_est_1n <-as.vector(sigma(fit_1n)[-1])
+```
+
+```{r}
+sigma_est_1s <-as.vector(sigma(fit_1s)[-1])
+sigma_est_1g <-as.vector(sigma(fit_1g)[-1])
+sigma_est_2n <-as.vector(sigma(fit_2n)[-1])
+sigma_est_2s <-as.vector(sigma(fit_2s)[-1])
+sigma_est_2g <-as.vector(sigma(fit_2g)[-1])
+sigma_est_3n <-as.vector(sigma(fit_3n)[-1])
+sigma_est_3s <-as.vector(sigma(fit_3s)[-1])
+sigma_est_3g <-as.vector(sigma(fit_3g)[-1])
+```
+
+```{r}
+sigma_sq_est_1n <-sigma_est_1n^2
+sigma_sq_est_1s <-sigma_est_1s^2
+sigma_sq_est_1g <-sigma_est_1g^2
+
+sigma_sq_est_2n <-sigma_est_2n^2
+sigma_sq_est_2s <-sigma_est_2s^2
+sigma_sq_est_2g <-sigma_est_2g^2
+
+sigma_sq_est_3n <-sigma_est_3n^2
+sigma_sq_est_3s <-sigma_est_3s^2
+sigma_sq_est_3g <-sigma_est_3g^2
+```
+
+
+```{r}
+real_volatility <- as.vector(data$vola_sq[-1])
+```
+
+
+```{r}
+real_volatility_sq <- real_volatility^2
+```
+
+
+```{r}
+library(MLmetrics)
+MSE1_1n <- MSE(sigma_sq_est_1n, real_volatility_sq)
+MSE1_1s <- MSE(sigma_sq_est_1s, real_volatility_sq)
+MSE1_1g <- MSE(sigma_sq_est_1g, real_volatility_sq)
+
+MSE1_2n <- MSE(sigma_sq_est_2n, real_volatility_sq)
+MSE1_2s <- MSE(sigma_sq_est_2s, real_volatility_sq)
+MSE1_2g <- MSE(sigma_sq_est_2g, real_volatility_sq)
+
+MSE1_3n <- MSE(sigma_sq_est_3n, real_volatility_sq)
+MSE1_3s <- MSE(sigma_sq_est_3s, real_volatility_sq)
+MSE1_3g <- MSE(sigma_sq_est_3g, real_volatility_sq)
+```
+
+
+```{r}
+print(min(MSE1_1n,MSE1_1s,MSE1_1g,MSE1_2n,MSE1_2s,MSE1_2g,MSE1_3n,MSE1_3s,MSE1_3g))
+```
+MSE1 min je EGARCH normal distr.
+```{r}
+MSE1_2g 
+MSE2_2g
+MAE1_1s
+MAE2_2g
+```
+
+```{r}
+MSE2_1n <- MSE(sigma_est_1n, real_volatility)
+MSE2_1s <- MSE(sigma_est_1s, real_volatility)
+MSE2_1g <- MSE(sigma_est_1g, real_volatility)
+
+MSE2_2n <- MSE(sigma_est_2n, real_volatility)
+MSE2_2s <- MSE(sigma_est_2s, real_volatility)
+MSE2_2g <- MSE(sigma_est_2g, real_volatility)
+
+MSE2_3n <- MSE(sigma_est_3n, real_volatility)
+MSE2_3s <- MSE(sigma_est_3s, real_volatility)
+MSE2_3g <- MSE(sigma_est_3g, real_volatility)
+```
+
+```{r}
+print(min(MSE2_1n,MSE2_1s,MSE2_1g,MSE2_2n,MSE2_2s,MSE2_2g,MSE2_3n,MSE2_3s,MSE2_3g))
+```
+MSE2 min je EGARCH normal distr.
+
+```{r}
+MAE1_1n <- mae(sigma_sq_est_1n, real_volatility_sq)
+MAE1_1s <- mae(sigma_sq_est_1s, real_volatility_sq)
+MAE1_1g <- mae(sigma_sq_est_1g, real_volatility_sq)
+
+MAE1_2n <- mae(sigma_sq_est_2n, real_volatility_sq)
+MAE1_2s <- mae(sigma_sq_est_2s, real_volatility_sq)
+MAE1_2g <- mae(sigma_sq_est_2g, real_volatility_sq)
+
+MAE1_3n <- mae(sigma_sq_est_3n, real_volatility_sq)
+MAE1_3s <- mae(sigma_sq_est_3s, real_volatility_sq)
+MAE1_3g <- mae(sigma_sq_est_3g, real_volatility_sq)
+```
+
+```{r}
+print(min(MAE1_1n,MAE1_1s,MAE1_1g,MAE1_2n,MAE1_2s,MAE1_2g,MAE1_3n,MAE1_3s,MAE1_3g))
+```
+ALSO EGARCH NORMAL DISTR
+
+```{r}
+MAE2_1n <- mae(sigma_est_1n, real_volatility)
+MAE2_1s <- mae(sigma_est_1s, real_volatility)
+MAE2_1g <- mae(sigma_est_1g, real_volatility)
+
+MAE2_2n <- mae(sigma_est_2n, real_volatility)
+MAE2_2s <- mae(sigma_est_2s, real_volatility)
+MAE2_2g <- mae(sigma_est_2g, real_volatility)
+
+MAE2_3n <- mae(sigma_est_3n, real_volatility)
+MAE2_3s <- mae(sigma_est_3s, real_volatility)
+MAE2_3g <- mae(sigma_est_3g, real_volatility)
+```
+
+ALSO EGARCH NORMAL DISTR.
+```{r}
+print(min(MAE2_1n,MAE2_1s,MAE2_1g,MAE2_2n,MAE2_2s,MAE2_2g,MAE2_3n,MAE2_3s,MAE2_3g))
+```
