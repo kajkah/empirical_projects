@@ -1,6 +1,7 @@
 # Empirical_projects
-Welcome to my Empirical Projects repository! This repository hosts the code, analyses, and occasionally accompanying research papers for various empirical research projects I have conducted. Below, you will find an overview of each project, including a brief description of its focus and the grade received.
-Projects
+Welcome to my repository which hosts the code, data and output in the form of pdf project. **In order to see the pdf files, please download them.** Below, you will find an overview of each project, including a brief description, methods, dataset and software used.
+
+## Projects:
 
 #### 1. Female Leadership and ESG Performance: A Meta-Analysis
 
