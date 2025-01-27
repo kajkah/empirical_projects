@@ -3,7 +3,7 @@ Welcome to my repository which hosts the code, data and output in the form of pd
 
 ## Projects:
 
-#### 1. Female Leadership and ESG Performance: A Meta-Analysis
+#### 1. Female Leadership and ESG Performance: A Meta-Analysis -- to be uploaded when finished
 
   * Master's Thesis
   * **Description:** Explored publication bias and sources of heterogeneity among estimates of the relationship between female leadership and ESG performance.
@@ -35,10 +35,3 @@ Welcome to my repository which hosts the code, data and output in the form of pd
    * **Method:** Difference-in-difference (DID) average treatment effects model
    * **Dataset:**  own dataset created by merging hourly consumption data of electricity from ENTSO-E and weather data from Meteostat
    * **Software:** R
-   
-#### 6. Are Elderly Internet Users Healthier?
-   * Bachelor's thesis
-   * **Description:** Analyzed whether frequent internet usage impacts elderly’s health in Europe
-   * **Method:** Two-stage least square and multinomial logit models
-   * **Dataset:**  Survey of Health and Retirement in Europe
-   * **Software:** STATA
